@@ -167,7 +167,7 @@ elseif(APPLE) # APPLE
       set(PLUGIN_NAME "${target}")
     endif()
 
-    string(TOLOWER "com.ircam.${PLUGIN_NAME}.vamp.pkg" VPP_PACKAGE_UID)
+    string(TOLOWER "com.${VPP_COMPANY}.${PLUGIN_NAME}.vamp.pkg" VPP_PACKAGE_UID)
 
     file(APPEND ${VPP_TEMP1} "    <pkg-ref id=\"${VPP_PACKAGE_UID}\"/>\n")
     file(APPEND ${VPP_TEMP2} "        <line choice=\"${VPP_PACKAGE_UID}\"/>\n")
