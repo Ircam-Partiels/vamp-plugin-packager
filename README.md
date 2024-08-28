@@ -10,6 +10,9 @@ set(VPP_COMPANY "MySuperCompany" CACHE PATH "The name of the company")
 set(VPP_URL "MySuperWebsite" CACHE PATH "The URL of the project")
 ...
 include(vamp-plugin-packager/vamp-plugin-packager.cmake)
+...
+vpp_add_plugin(my-vamp-plugin)
+vpp_add_file(my-extra-file.txt my-destination-dir)
 ```
 
 > ⚠️ Packaging under Windows requires InnoSetup. 
