@@ -82,6 +82,16 @@ if(WIN32) # WINDOWs
   file(APPEND ${VPP_ISS_FILE} "Name: \"english\"; MessagesFile: \"compiler:Default.isl\"\n")
   file(APPEND ${VPP_ISS_FILE} "\n")
   file(APPEND ${VPP_ISS_FILE} "[Files]\n")
+
+  function(vpp_add_file file destination)
+    get_filename_component(file_name ${file} NAME)
+    get_filename_component(file_name_we ${file} NAME_WE)
+    string(REPLACE " " "_" file_name_we ${file_name_we})
+    file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${file_name}\"; DestDir: \"${destination}\"; Flags: ignoreversion\n")
+
+    add_custom_target(${file_name_we}_package COMMAND ${CMAKE_COMMAND} -E copy ${file} ${VPP_TEMP_DIR})
+    add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
+  endfunction()
   
   function(vpp_add_plugin target)
     get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
@@ -161,6 +171,35 @@ elseif(APPLE) # APPLE
   file(WRITE ${VPP_TEMP2} "    <choices-outline>\n")
   file(WRITE ${VPP_TEMP3} "    </choices-outline>\n")
 
+  function(vpp_add_file file destination)
+    get_filename_component(file_name ${file} NAME)
+    get_filename_component(file_name_we ${file} NAME_WE)
+    string(REPLACE " " "_" file_name_we ${file_name_we})
+    string(TOLOWER "com.${VPP_COMPANY}.${file_name}.vamp.pkg" VPP_PACKAGE_UID)
+
+    file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${file_name_we})
+    file(COPY ${file} DESTINATION ${VPP_TEMP_DIR}/${file_name_we})
+   
+    file(APPEND ${VPP_TEMP1} "    <pkg-ref id=\"${VPP_PACKAGE_UID}\"/>\n")
+    file(APPEND ${VPP_TEMP2} "        <line choice=\"${VPP_PACKAGE_UID}\"/>\n")
+    file(APPEND ${VPP_TEMP3} "    <choice id=\"${VPP_PACKAGE_UID}\" visible=\"true\" start_selected=\"true\" title=\"${file_name}\"><pkg-ref id=\"${VPP_PACKAGE_UID}\"/></choice><pkg-ref id=\"${VPP_PACKAGE_UID}\" version=\"${VPP_BUILD_TAG}\" onConclusion=\"none\">${file_name}.pkg</pkg-ref>\n")
+
+    if(VPP_NOTARIZE)
+      set(PLUGIN_PKG_SCRIT "${VPP_TEMP_DIR}/${file_name_we}.sh")
+      file(WRITE ${PLUGIN_PKG_SCRIT} "#!/bin/sh\n\n")
+      file(CHMOD ${PLUGIN_PKG_SCRIT} PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+      file(APPEND ${PLUGIN_PKG_SCRIT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_ENTITLEMENTS}\" -f -o runtime --timestamp \"${VPP_TEMP_DIR}/${file_name_we}/${file_name}\"\n")
+      file(APPEND ${PLUGIN_PKG_SCRIT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"${VPP_TEMP_DIR}/${file_name_we}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"${destination}/\" \"${VPP_TEMP_DIR}/${file_name}.pkg\"\n")
+      file(APPEND ${PLUGIN_PKG_SCRIT} "pkgutil --check-signature \"${VPP_TEMP_DIR}/${file_name}.pkg\"\n")
+      add_custom_target(${file_name_we}_package COMMAND ${PLUGIN_PKG_SCRIT})
+    else()
+      add_custom_target(${file_name_we}_package COMMAND pkgbuild --root "${VPP_TEMP_DIR}/${file_name_we}" --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "${destination}/" "${VPP_TEMP_DIR}/${file_name}.pkg")
+    endif()
+
+    add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
+  endfunction()
+  
+
   function(vpp_add_plugin target)
     get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
     if(NOT PLUGIN_NAME)
@@ -228,6 +267,16 @@ elseif(UNIX) # LINUX
   set(VPP_UNINSTALL_SCRIPT "${VPP_TEMP_DIR}/Uninstall.sh")
   file(WRITE ${VPP_UNINSTALL_SCRIPT} "#!/bin/sh\n\n")
   file(CHMOD ${VPP_UNINSTALL_SCRIPT} PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+
+  function(vpp_add_file file destination)
+    get_filename_component(file_name ${file} NAME)
+    get_filename_component(file_name_we ${file} NAME_WE)
+    string(REPLACE " " "_" file_name_we ${file_name_we})
+    file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${file_name} ${destination}\n")
+    file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f ${destination}/${file_name}\n")
+    add_custom_target(${file_name_we}_package COMMAND ${CMAKE_COMMAND} -E copy ${file} ${VPP_TEMP_DIR})
+    add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
+  endfunction()
 
   function(vpp_add_plugin target)
     get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
