@@ -7,6 +7,7 @@ The script can also generate:
 - the installation rules for a target
 - the debug scheme for a target using the Partiels application
 - clang format targets to check and apply the format to the sources
+- manual target to generate a PDF from a markdown file
 - a CMake test that runs the vamp-plugin-tester application on all the generated plugins
 
 ## Example 
