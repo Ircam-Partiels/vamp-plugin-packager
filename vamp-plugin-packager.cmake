@@ -359,7 +359,6 @@ endfunction(vpp_set_plugin_debug)
 # Downloads the Vamp Plugin Tester and create a CMake test all 
 # the generated plugins located in the build directory
 function(vpp_enable_vamp_plugin_tester)
-  enable_testing()
   if(APPLE)
     if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester)
       file(DOWNLOAD "https://github.com/pierreguillot/vamp-plugin-tester/releases/download/1.1/vamp-plugin-tester-1.1-osx-arm.zip" "${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester.tar.gz")
