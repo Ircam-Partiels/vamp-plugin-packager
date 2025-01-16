@@ -392,3 +392,27 @@ function(vpp_create_clang_format_targets prefixname sources)
     message(STATUS "Clang Format targets cannot be generated because clang-format is not found")
   endif()
 endfunction(vpp_create_clang_format_targets)
+
+# Creates a manual target that generates a PDF from a markdown file
+# The mdpdf executable is required
+# The string APPVERSION is replaced by the version of the project
+# The relative paths are replaced by the absolute paths
+function(vpp_create_manual_target prefixname source version)
+  set(VPP_MANUAL_DIR ${CMAKE_CURRENT_BINARY_DIR}/Manual)
+  file(MAKE_DIRECTORY ${VPP_MANUAL_DIR})
+  get_filename_component(file_name ${source} NAME_WE)
+  get_filename_component(file_directory ${source} DIRECTORY)
+
+  file(READ ${source} MANUAL_CONTENT)
+  string(REPLACE "APPVERSION" "${version}" MANUAL_CONTENT ${MANUAL_CONTENT})
+  string(REPLACE "src=\"../" "src=\"${file_directory}/" MANUAL_CONTENT ${MANUAL_CONTENT})
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${file_name}.md ${MANUAL_CONTENT})
+
+  find_program(MDPDF_EXE "mdpdf")
+  if(MDPDF_EXE)
+    add_custom_target(${prefixname}_manual COMMAND ${MDPDF_EXE} ${CMAKE_CURRENT_BINARY_DIR}/${file_name}.md ${VPP_MANUAL_DIR}/${file_name}.pdf VERBATIM)
+  else()
+    message(STATUS "Manual target cannot be generated because mdpdf is not found")
+  endif()
+endfunction(vpp_create_manual_target)
+
