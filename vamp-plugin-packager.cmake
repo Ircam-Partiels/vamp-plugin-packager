@@ -303,6 +303,21 @@ elseif(UNIX) # LINUX
 
 endif()
 
+# Setup the install rules for a plugin target 
+function(vpp_set_plugin_install target)
+  get_target_property(TARGET_OUTPUT_NAME ${target} LIBRARY_OUTPUT_NAME)
+  if(APPLE)
+    install(TARGETS ${target} RUNTIME LIBRARY DESTINATION "~/Library/Audio/Plug-Ins/Vamp/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resource/${TARGET_OUTPUT_NAME}.cat DESTINATION "~/Library/Audio/Plug-Ins/Vamp/")
+  elseif(UNIX)
+    install(TARGETS ${target} RUNTIME LIBRARY DESTINATION "~/vamp/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resource/${TARGET_OUTPUT_NAME}.cat DESTINATION "~/vamp/")
+  elseif(WIN32)
+    install(TARGETS ${target} RUNTIME DESTINATION "$ENV{PROGRAMFILES}/Vamp Plugins/" PERMISSIONS OWNER_WRITE)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resource/${TARGET_OUTPUT_NAME}.cat DESTINATION "$ENV{PROGRAMFILES}/Vamp Plugins/")
+  endif()
+endfunction(vpp_set_plugin_install)
+
 # Downloads the Vamp Plugin Tester and create a CMake test all 
 # the generated plugins located in the build directory
 function(vpp_enable_vamp_plugin_tester)
