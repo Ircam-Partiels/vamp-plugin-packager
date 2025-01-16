@@ -3,7 +3,10 @@
 
 This CMake script automatically generates Vamp plugin installation packages for macOS, Windows and Linux operating systems and can automatically sign and notarise packages on macOS and Windows. The variables and options used to configure the packaging and signature are described in the header of the CMake script.
 
-The script can also generate the installation rules and a CMake test on all plugins generated with the vamp-plugin-tester application.
+The script can also generate:
+- the installation rules for a target
+- the debug scheme for a target using the Partiels application
+- a CMake test that runs the vamp-plugin-tester application on all the generated plugins
 
 ## Example 
 ```
@@ -15,7 +18,7 @@ include(vamp-plugin-packager/vamp-plugin-packager.cmake)
 ...
 vpp_add_plugin(my-vamp-plugin)
 vpp_add_file(my-extra-file.txt my-destination-dir)
-
+vpp_set_plugin_debug(my-vamp-plugin "my-partielsdoc.ptldoc")
 vpp_set_plugin_install(my-vamp-plugin)
 
 vpp_enable_vamp_plugin_tester()
