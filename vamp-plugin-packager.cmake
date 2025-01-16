@@ -380,3 +380,15 @@ function(vpp_enable_vamp_plugin_tester)
   add_test(NAME VampPluginTester COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester -a)
   set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "$<IF:$<CONFIG:Debug>,VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Debug,VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Release>")
 endfunction(vpp_enable_vamp_plugin_tester) 
+
+# Creates clang-format targets to check and apply the format
+# to the sources
+function(vpp_create_clang_format_targets prefixname sources)
+  find_program(CLANG_FORMAT_EXE "clang-format" HINTS "C:/Program Files/LLVM/bin")
+  if(CLANG_FORMAT_EXE)
+    add_custom_target(${prefixname}_check_format ${CLANG_FORMAT_EXE} --Werror --dry-run --verbose -style=file ${sources})
+    add_custom_target(${prefixname}_apply_format ${CLANG_FORMAT_EXE} -i -style=file ${sources})
+  else()
+    message(STATUS "Clang Format targets cannot be generated because clang-format is not found")
+  endif()
+endfunction(vpp_create_clang_format_targets)
