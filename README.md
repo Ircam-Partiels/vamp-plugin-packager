@@ -6,6 +6,7 @@ This CMake script automatically generates Vamp plugin installation packages for 
 The script can also generate:
 - the installation rules for a target
 - the debug scheme for a target using the Partiels application
+- clang format targets to check and apply the format to the sources
 - a CMake test that runs the vamp-plugin-tester application on all the generated plugins
 
 ## Example 
@@ -20,6 +21,7 @@ vpp_add_plugin(my-vamp-plugin)
 vpp_add_file(my-extra-file.txt my-destination-dir)
 vpp_set_plugin_debug(my-vamp-plugin "my-partielsdoc.ptldoc")
 vpp_set_plugin_install(my-vamp-plugin)
+vpp_create_clang_format_targets(my-vamp-plugin ${MY_PLUGIN_SOURCES})
 
 vpp_enable_vamp_plugin_tester()
 ```
