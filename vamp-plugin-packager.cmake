@@ -318,6 +318,38 @@ function(vpp_set_plugin_install target)
   endif()
 endfunction(vpp_set_plugin_install)
 
+# Setup the debug rules for a plugin target with the Partiels application
+function(vpp_set_plugin_debug target file)
+  if(NOT PARTIELS_EXE)
+    set(PREVIOUS_CMAKE_FIND_APPBUNDLE ${CMAKE_FIND_APPBUNDLE})
+    set(CMAKE_FIND_APPBUNDLE "FIRST")
+
+    if(PARTIELS_EXE_HINT_PATH)
+      find_program(PARTIELS_EXE "Partiels" HINTS ${PARTIELS_EXE_HINT_PATH} NO_DEFAULT_PATH)
+    else()
+      find_program(PARTIELS_EXE "Partiels")
+    endif()
+
+    if(PARTIELS_EXE)
+      if(NOT IS_DIRECTORY ${PARTIELS_EXE}) 
+        cmake_path(GET PARTIELS_EXE PARENT_PATH PARTIELS_EXE_PARENT)
+        cmake_path(SET PARTIELS_EXE NORMALIZE "${PARTIELS_EXE_PARENT}/../../")
+      endif()
+    else()
+      message(WARNING "Partiels executable not found")
+    endif()
+
+    set(CMAKE_FIND_APPBUNDLE ${PREVIOUS_CMAKE_FIND_APPBUNDLE})
+  endif()
+
+  if(PARTIELS_EXE)
+    message(STATUS "Debugging ${target} with ${PARTIELS_EXE}")
+    set_target_properties(${target} PROPERTIES XCODE_SCHEME_EXECUTABLE ${PARTIELS_EXE})
+    set_target_properties(${target} PROPERTIES XCODE_SCHEME_ARGUMENTS ${file})
+    set_target_properties(${target} PROPERTIES XCODE_SCHEME_ENVIRONMENT "VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Debug")
+  endif()
+endfunction(vpp_set_plugin_debug)
+
 # Downloads the Vamp Plugin Tester and create a CMake test all 
 # the generated plugins located in the build directory
 function(vpp_enable_vamp_plugin_tester)
