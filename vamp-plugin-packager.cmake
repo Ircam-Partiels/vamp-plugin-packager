@@ -94,11 +94,12 @@ if(WIN32) # WINDOWS
     add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
   endfunction()
   
-  function(vpp_add_plugin target)
+  function(vpp_add_plugin target catfile)
     get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
     if(NOT PLUGIN_NAME)
       set(PLUGIN_NAME "${target}")
     endif()
+    add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat)
 
     file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.dll\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
     file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.cat\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
@@ -202,11 +203,12 @@ elseif(APPLE) # APPLE
   endfunction()
   
 
-  function(vpp_add_plugin target)
+  function(vpp_add_plugin target catfile)
     get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
     if(NOT PLUGIN_NAME)
       set(PLUGIN_NAME "${target}")
     endif()
+    add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
 
     string(TOLOWER "com.${VPP_COMPANY}.${PLUGIN_NAME}.vamp.pkg" VPP_PACKAGE_UID)
 
@@ -281,11 +283,13 @@ elseif(UNIX) # LINUX
     add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
   endfunction()
 
-  function(vpp_add_plugin target)
+  function(vpp_add_plugin target catfile)
     get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
     if(NOT PLUGIN_NAME)
       set(PLUGIN_NAME "${target}")
     endif()
+    add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
+
     file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.so $HOME/vamp\n")
     file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.cat $HOME/vamp\n")
     file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
@@ -305,16 +309,18 @@ endif()
 
 # Setup the install rules for a plugin target 
 function(vpp_set_plugin_install target)
-  get_target_property(TARGET_OUTPUT_NAME ${target} LIBRARY_OUTPUT_NAME)
+  function(vpp_set_install_imp target destination)
+    get_target_property(TARGET_OUTPUT_NAME ${target} LIBRARY_OUTPUT_NAME)
+    install(TARGETS ${target} RUNTIME LIBRARY DESTINATION ${destination} PERMISSIONS OWNER_WRITE)
+    install(FILES $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat DESTINATION ${destination})
+  endfunction(vpp_set_install_imp)
+  
   if(APPLE)
-    install(TARGETS ${target} RUNTIME LIBRARY DESTINATION "~/Library/Audio/Plug-Ins/Vamp/")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resource/${TARGET_OUTPUT_NAME}.cat DESTINATION "~/Library/Audio/Plug-Ins/Vamp/")
+    vpp_set_install_imp(${target} "/Library/Audio/Plug-Ins/Vamp/")
   elseif(UNIX)
-    install(TARGETS ${target} RUNTIME LIBRARY DESTINATION "~/vamp/")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resource/${TARGET_OUTPUT_NAME}.cat DESTINATION "~/vamp/")
+    vpp_set_install_imp(${target} "~/vamp/")
   elseif(WIN32)
-    install(TARGETS ${target} RUNTIME DESTINATION "$ENV{PROGRAMFILES}/Vamp Plugins/" PERMISSIONS OWNER_WRITE)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resource/${TARGET_OUTPUT_NAME}.cat DESTINATION "$ENV{PROGRAMFILES}/Vamp Plugins/")
+    vpp_set_install_imp(${target} "$ENV{PROGRAMFILES}/Vamp Plugins/")
   endif()
 endfunction(vpp_set_plugin_install)
 
