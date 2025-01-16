@@ -48,7 +48,8 @@ elseif(APPLE AND VPP_NOTARIZE)
 endif()
 
 # Generations
-if(WIN32) # WINDOWs
+if(WIN32) # WINDOWS
+
   set(VPP_PACKAGE "${VPP_DIR}/${VPP_NAME}-Windows.exe")
 
   set(VPP_TEMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/PkgTemp")
@@ -128,6 +129,7 @@ if(WIN32) # WINDOWs
   add_custom_target(${VPP_NAME}_package ALL COMMAND ${VPP_SCRIPT} COMMENT "Packaging the Vamp plug-ins")
 
 elseif(APPLE) # APPLE
+
   set(VPP_PACKAGE "${VPP_DIR}/${VPP_NAME}-MacOS.pkg")
   file(MAKE_DIRECTORY ${VPP_DIR})
 
@@ -245,6 +247,7 @@ elseif(APPLE) # APPLE
   add_custom_target(${VPP_NAME}_package ALL COMMAND ${VPP_PACKAGE_SCRIPT})
 
 elseif(UNIX) # LINUX
+
   set(VPP_PACKAGE "${VPP_DIR}/${VPP_NAME}-Linux.tar.gz")
   file(MAKE_DIRECTORY ${VPP_DIR})
   set(VPP_TEMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/${VPP_NAME}")
