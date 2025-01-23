@@ -376,7 +376,13 @@ function(vpp_enable_vamp_plugin_tester)
     endif()
   endif()
 
-  add_test(NAME VampPluginTester COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester -a)
+  set(ARG_CLI_OPTIONS ${ARGN})
+  if(NOT ARG_CLI_OPTIONS)
+    set(ARG_CLI_OPTIONS --all)
+  endif()
+
+  message(STATUS "Test with: ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester ${ARG_CLI_OPTIONS}")
+  add_test(NAME VampPluginTester COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester ${ARG_CLI_OPTIONS} COMMAND_EXPAND_LISTS)
   set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "$<IF:$<CONFIG:Debug>,VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Debug,VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Release>")
 endfunction(vpp_enable_vamp_plugin_tester) 
 
