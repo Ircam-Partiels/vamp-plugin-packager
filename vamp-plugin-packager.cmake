@@ -13,7 +13,7 @@ set(VPP_CODESIGN_WINDOWS_KEYPASSWORD "" CACHE STRING "The password of the Window
 set(VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT "Developer ID Application" CACHE STRING "The Apple Developer ID Application certificate")
 set(VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT "Developer ID Installer" CACHE STRING "The Apple Developer ID Installer certificate")
 set(VPP_CODESIGN_APPLE_KEYCHAIN_PROFILE_INSTALLER "notary-installer" CACHE STRING "The Apple keychain profile for installer")
-set(VPP_CODESIGN_ENTITLEMENTS "${CMAKE_CURRENT_LIST_DIR}/vamp-plugins.entitlements")
+set(VPP_CODESIGN_APPLE_ENTITLEMENTS "${CMAKE_CURRENT_LIST_DIR}/vamp-plugins.entitlements")
 
 option(VPP_NOTARIZE OFF)
 
@@ -191,7 +191,7 @@ elseif(APPLE) # APPLE
       set(PLUGIN_PKG_SCRIPT "${VPP_TEMP_DIR}/${file_name_we}.sh")
       file(WRITE ${PLUGIN_PKG_SCRIPT} "#!/bin/sh\n\n")
       file(CHMOD ${PLUGIN_PKG_SCRIPT} PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-      file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_ENTITLEMENTS}\" -f -o runtime --timestamp \"${VPP_TEMP_DIR}/${file_name_we}/${file_name}\"\n")
+      file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_APPLE_ENTITLEMENTS}\" -f -o runtime --timestamp \"${VPP_TEMP_DIR}/${file_name_we}/${file_name}\"\n")
       file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"${VPP_TEMP_DIR}/${file_name_we}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"${destination}/\" \"${VPP_TEMP_DIR}/${file_name}.pkg\"\n")
       file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgutil --check-signature \"${VPP_TEMP_DIR}/${file_name}.pkg\"\n")
       add_custom_target(${file_name_we}_package COMMAND ${PLUGIN_PKG_SCRIPT})
@@ -220,8 +220,8 @@ elseif(APPLE) # APPLE
       set(PLUGIN_PKG_SCRIPT "${VPP_TEMP_DIR}/${target}.sh")
       file(WRITE ${PLUGIN_PKG_SCRIPT} "#!/bin/sh\n\n")
       file(CHMOD ${PLUGIN_PKG_SCRIPT} PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-      file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_ENTITLEMENTS}\" -f -o runtime --timestamp \"$1/${PLUGIN_NAME}.cat\"\n")
-      file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_ENTITLEMENTS}\" -f -o runtime --timestamp \"$1/${PLUGIN_NAME}.dylib\"\n")
+      file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_APPLE_ENTITLEMENTS}\" -f -o runtime --timestamp \"$1/${PLUGIN_NAME}.cat\"\n")
+      file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_APPLE_ENTITLEMENTS}\" -f -o runtime --timestamp \"$1/${PLUGIN_NAME}.dylib\"\n")
       file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
       file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgutil --check-signature \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
       add_custom_target(${target}_package COMMAND ${PLUGIN_PKG_SCRIPT} $<TARGET_FILE_DIR:${target}>)
