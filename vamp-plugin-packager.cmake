@@ -231,11 +231,9 @@ elseif(APPLE) # APPLE
       add_custom_target(${target}_package COMMAND ${PLUGIN_PKG_SCRIPT} $<TARGET_FILE_DIR:${target}>)
     else()
       if(CMAKE_OSX_DEPLOYMENT_TARGET)
-        message(STATUS "Deployment target: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" "${VPP_TEMP_DIR}/${target}.pkg")
-      else()
-        message(STATUS "Deployment target: Undefined")
         add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" --min-os-version "${CMAKE_OSX_DEPLOYMENT_TARGET}" "${VPP_TEMP_DIR}/${target}.pkg")
+      else()
+        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" "${VPP_TEMP_DIR}/${target}.pkg")
       endif()
     endif()
 
