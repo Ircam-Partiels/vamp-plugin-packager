@@ -341,6 +341,8 @@ function(vpp_set_plugin_debug target file)
 
     if(PARTIELS_EXE_HINT_PATH)
       find_program(PARTIELS_EXE "Partiels" HINTS ${PARTIELS_EXE_HINT_PATH} NO_DEFAULT_PATH)
+    elseif(DEFINED ENV{PARTIELS_EXE_HINT_PATH})
+      find_program(PARTIELS_EXE "Partiels" HINTS $ENV{PARTIELS_EXE_HINT_PATH} NO_DEFAULT_PATH)
     else()
       find_program(PARTIELS_EXE "Partiels")
     endif()
