@@ -317,17 +317,31 @@ elseif(UNIX) # LINUX
     if(NOT PLUGIN_NAME)
       set(PLUGIN_NAME "${target}")
     endif()
-    add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
 
-    file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.so $HOME/vamp\n")
-    file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.cat $HOME/vamp\n")
-    file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
-    file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.cat\n")
+    get_target_property(PLUGIN_BUNDLE ${target} BUNDLE)
+    if(PLUGIN_BUNDLE)
+      file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
+
+      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
+      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.vamp\n")
+      
+      add_custom_target(${target}_package
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.vamp/" ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
+      )
+    else()
+      add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
+
+      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.so $HOME/vamp\n")
+      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.cat $HOME/vamp\n")
+      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
+      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.cat\n")
+      
+      add_custom_target(${target}_package 
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${VPP_TEMP_DIR}/${PLUGIN_NAME}.so
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat ${VPP_TEMP_DIR}/${PLUGIN_NAME}.cat
+      )
+    endif()
     
-    add_custom_target(${target}_package 
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${VPP_TEMP_DIR}/${PLUGIN_NAME}.so
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat ${VPP_TEMP_DIR}/${PLUGIN_NAME}.cat
-    )
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
   endfunction(vpp_add_plugin)
