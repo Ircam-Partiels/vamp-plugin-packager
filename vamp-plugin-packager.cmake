@@ -99,15 +99,28 @@ if(WIN32) # WINDOWS
     if(NOT PLUGIN_NAME)
       set(PLUGIN_NAME "${target}")
     endif()
-    add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat)
 
-    file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.dll\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
-    file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.cat\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
+    get_target_property(PLUGIN_BUNDLE ${target} BUNDLE)
+    if(PLUGIN_BUNDLE)
+      file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
+      
+      file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.vamp\\*\"; DestDir: \"{app}\\${PLUGIN_NAME}.vamp\"; Flags: ignoreversion recursesubdirs\n")
+      
+      add_custom_target(${target}_package
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.vamp/" ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
+      )
+    else()
+      add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat)
 
-    add_custom_target(${target}_package 
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${VPP_TEMP_DIR}/${PLUGIN_NAME}.dll
-      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat ${VPP_TEMP_DIR}/${PLUGIN_NAME}.cat
-    )
+      file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.dll\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
+      file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.cat\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
+
+      add_custom_target(${target}_package 
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${VPP_TEMP_DIR}/${PLUGIN_NAME}.dll
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat ${VPP_TEMP_DIR}/${PLUGIN_NAME}.cat
+      )
+    endif()
+
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
   endfunction(vpp_add_plugin)
