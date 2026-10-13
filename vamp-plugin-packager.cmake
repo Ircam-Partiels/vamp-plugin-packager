@@ -335,8 +335,8 @@ elseif(UNIX) # LINUX
     if(PLUGIN_BUNDLE)
       file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
 
-      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
-      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.vamp\n")
+      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -rf $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
+      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -rf $HOME/vamp/${PLUGIN_NAME}.vamp\n")
       
       add_custom_target(${target}_package
         COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.vamp/" ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
