@@ -106,6 +106,11 @@ if(WIN32) # WINDOWS
       
       file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.vamp\\*\"; DestDir: \"{app}\\${PLUGIN_NAME}.vamp\"; Flags: ignoreversion recursesubdirs\n")
       
+      # Remove the files that may have been installed by the previous versions of the plugin
+      file(APPEND ${VPP_ISS_FILE} "\n[InstallDelete]\n")
+      file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.dll\"\n")
+      file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.cat\"\n")
+
       add_custom_target(${target}_package
         COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.vamp/" ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
       )
@@ -228,6 +233,20 @@ elseif(APPLE) # APPLE
     endif()
     message(STATUS "Adding plugin ${PLUGIN_NAME} to the package with type ${PLUGIN_TYPE}")
 
+    # For a bundle, a postinstall script removes the files that may have been installed
+    # by the previous versions of the plugin, hence only the bundle remains installed.
+    set(VPP_PKG_SCRIPTS_ARGS)
+    if(PLUGIN_TYPE STREQUAL "MODULE_LIBRARY")
+      set(VPP_PLUGIN_SCRIPTS_DIR "${VPP_TEMP_DIR}/${target}-scripts")
+      file(MAKE_DIRECTORY ${VPP_PLUGIN_SCRIPTS_DIR})
+      file(WRITE ${VPP_PLUGIN_SCRIPTS_DIR}/postinstall "#!/bin/sh\n\n")
+      file(APPEND ${VPP_PLUGIN_SCRIPTS_DIR}/postinstall "rm -f \"/Library/Audio/Plug-Ins/Vamp/${PLUGIN_NAME}.dylib\"\n")
+      file(APPEND ${VPP_PLUGIN_SCRIPTS_DIR}/postinstall "rm -f \"/Library/Audio/Plug-Ins/Vamp/${PLUGIN_NAME}.cat\"\n")
+      file(APPEND ${VPP_PLUGIN_SCRIPTS_DIR}/postinstall "exit 0\n")
+      file(CHMOD ${VPP_PLUGIN_SCRIPTS_DIR}/postinstall PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+      set(VPP_PKG_SCRIPTS_ARGS --scripts "${VPP_PLUGIN_SCRIPTS_DIR}")
+    endif()
+
     string(TOLOWER "com.${VPP_COMPANY}.${PLUGIN_NAME}.vamp.pkg" VPP_PACKAGE_UID)
 
     file(APPEND ${VPP_TEMP1} "    <pkg-ref id=\"${VPP_PACKAGE_UID}\"/>\n")
@@ -245,9 +264,9 @@ elseif(APPLE) # APPLE
         file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_APPLE_ENTITLEMENTS}\" --deep -f -o runtime --timestamp \"$1\"\n")
 
         if(CMAKE_OSX_DEPLOYMENT_TARGET)
-          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1/../\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" --min-os-version \"${CMAKE_OSX_DEPLOYMENT_TARGET}\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
+          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1/../\" --scripts \"${VPP_PLUGIN_SCRIPTS_DIR}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" --min-os-version \"${CMAKE_OSX_DEPLOYMENT_TARGET}\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
         else()
-          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1/../\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
+          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1/../\" --scripts \"${VPP_PLUGIN_SCRIPTS_DIR}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
         endif()
       else()
         add_custom_target(${target}_package COMMAND ${PLUGIN_PKG_SCRIPT} $<TARGET_FILE_DIR:${target}>)
@@ -265,9 +284,9 @@ elseif(APPLE) # APPLE
       file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgutil --check-signature \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
     else()
       if(CMAKE_OSX_DEPLOYMENT_TARGET)
-        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" --min-os-version "${CMAKE_OSX_DEPLOYMENT_TARGET}" "${VPP_TEMP_DIR}/${target}.pkg")
+        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> ${VPP_PKG_SCRIPTS_ARGS} --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" --min-os-version "${CMAKE_OSX_DEPLOYMENT_TARGET}" "${VPP_TEMP_DIR}/${target}.pkg")
       else()
-        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" "${VPP_TEMP_DIR}/${target}.pkg")
+        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> ${VPP_PKG_SCRIPTS_ARGS} --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" "${VPP_TEMP_DIR}/${target}.pkg")
       endif()
     endif()
 
@@ -335,6 +354,9 @@ elseif(UNIX) # LINUX
     if(PLUGIN_BUNDLE)
       file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
 
+      # Remove the files that may have been installed by the previous versions of the plugin
+      file(APPEND ${VPP_INSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
+      file(APPEND ${VPP_INSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.cat\n")
       file(APPEND ${VPP_INSTALL_SCRIPT} "cp -rf $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
       file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -rf $HOME/vamp/${PLUGIN_NAME}.vamp\n")
       
