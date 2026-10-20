@@ -387,12 +387,30 @@ elseif(UNIX) # LINUX
 
 endif()
 
-# Setup the install rules for a plugin target 
+# Setup the install rules for a plugin target
 function(vpp_set_plugin_install target)
   function(vpp_set_install_imp target destination)
     get_target_property(TARGET_OUTPUT_NAME ${target} LIBRARY_OUTPUT_NAME)
-    install(TARGETS ${target} RUNTIME LIBRARY DESTINATION ${destination} PERMISSIONS OWNER_WRITE)
-    install(FILES $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat DESTINATION ${destination})
+    if(NOT TARGET_OUTPUT_NAME)
+      set(TARGET_OUTPUT_NAME "${target}")
+    endif()
+
+    get_target_property(TARGET_BUNDLE ${target} BUNDLE)
+    if(TARGET_BUNDLE)
+      if(APPLE)
+        # The plugin is a bundle, the cat file is embedded in the bundle resources
+        install(TARGETS ${target} 
+          BUNDLE DESTINATION "${destination}"
+          LIBRARY DESTINATION "${destination}"
+          RUNTIME DESTINATION "${destination}")
+      else()
+        # The bundle directory is created next to the binary in the build tree
+        install(DIRECTORY "$<TARGET_FILE_DIR:${target}>/${TARGET_OUTPUT_NAME}.vamp" DESTINATION ${destination})
+      endif()
+    else()
+      install(TARGETS ${target} RUNTIME LIBRARY DESTINATION ${destination} PERMISSIONS OWNER_WRITE)
+      install(FILES "$<TARGET_FILE_DIR:${target}>/${TARGET_OUTPUT_NAME}.cat" DESTINATION ${destination})
+    endif()
   endfunction(vpp_set_install_imp)
   
   if(APPLE)
