@@ -292,7 +292,7 @@ elseif(APPLE) # APPLE
 
 elseif(UNIX) # LINUX
 
-  set(VPP_PACKAGE "${VPP_DIR}/${VPP_NAME}-Linux.tar.gz")
+  set(VPP_PACKAGE "${VPP_DIR}/${VPP_NAME}-Linux.zip")
   file(MAKE_DIRECTORY ${VPP_DIR})
   set(VPP_TEMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/${VPP_NAME}")
   file(MAKE_DIRECTORY ${VPP_TEMP_DIR})
@@ -359,7 +359,9 @@ elseif(UNIX) # LINUX
     add_dependencies(${VPP_NAME}_package ${target}_package)
   endfunction(vpp_add_plugin)
 
-  add_custom_target(${VPP_NAME}_package ALL COMMAND ${CMAKE_COMMAND} -E tar czf ${VPP_PACKAGE} ${VPP_TEMP_DIR})
+  # The package is a zip archive that contains the files of the temporary directory directly,
+  # hence the files are extracted at the root of the destination directory.
+  add_custom_target(${VPP_NAME}_package ALL COMMAND ${CMAKE_COMMAND} -E chdir ${VPP_TEMP_DIR} ${CMAKE_COMMAND} -E tar cf ${VPP_PACKAGE} --format=zip .)
 
 endif()
 
