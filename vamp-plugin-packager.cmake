@@ -111,8 +111,10 @@ if(WIN32) # WINDOWS
       file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.dll\"\n")
       file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.cat\"\n")
 
+      # The dynamic library is generated in the Contents directory of the bundle,
+      # hence the bundle directory is two levels above the directory of the library.
       add_custom_target(${target}_package
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.vamp/" ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/../.." ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
       )
     else()
       add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat)
@@ -360,8 +362,10 @@ elseif(UNIX) # LINUX
       file(APPEND ${VPP_INSTALL_SCRIPT} "cp -rf $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
       file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -rf $HOME/vamp/${PLUGIN_NAME}.vamp\n")
       
+      # The dynamic library is generated in the Contents directory of the bundle,
+      # hence the bundle directory is two levels above the directory of the library.
       add_custom_target(${target}_package
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.vamp/" ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/../.." ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
       )
     else()
       add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
@@ -404,8 +408,9 @@ function(vpp_set_plugin_install target)
           LIBRARY DESTINATION "${destination}"
           RUNTIME DESTINATION "${destination}")
       else()
-        # The bundle directory is created next to the binary in the build tree
-        install(DIRECTORY "$<TARGET_FILE_DIR:${target}>/${TARGET_OUTPUT_NAME}.vamp" DESTINATION ${destination})
+        # The dynamic library is generated in the Contents directory of the bundle,
+        # hence the contents of the bundle are one level above the directory of the library.
+        install(DIRECTORY "$<TARGET_FILE_DIR:${target}>/../" DESTINATION "${destination}/${TARGET_OUTPUT_NAME}.vamp/Contents")
       endif()
     else()
       install(TARGETS ${target} RUNTIME LIBRARY DESTINATION ${destination} PERMISSIONS OWNER_WRITE)
@@ -457,9 +462,13 @@ function(vpp_set_plugin_debug target file)
   endif()
 endfunction(vpp_set_plugin_debug)
 
-# Downloads the Vamp Plugin Tester and create a CMake test all 
-# the generated plugins located in the build directory
-function(vpp_enable_vamp_plugin_tester)
+# Downloads the Vamp Plugin Tester and create a CMake test for the plugin target.
+# The plugin is packaged in a Vamp bundle in which the dynamic library is generated,
+# hence the Vamp path of the test is the directory that contains the library:
+# the hosts browse this directory to discover and load the plugin. Note that the
+# binary of a macOS bundle has no extension, therefore a symlink to the library
+# must be generated next to it so that the hosts can discover the plugin.
+function(vpp_enable_vamp_plugin_tester target)
   if(APPLE)
     if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester)
       file(DOWNLOAD "https://github.com/pierreguillot/vamp-plugin-tester/releases/download/1.1/vamp-plugin-tester-1.1-osx-arm.zip" "${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester.tar.gz")
@@ -484,8 +493,8 @@ function(vpp_enable_vamp_plugin_tester)
 
   message(STATUS "Test with: ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester ${ARG_CLI_OPTIONS}")
   add_test(NAME VampPluginTester COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester ${ARG_CLI_OPTIONS} COMMAND_EXPAND_LISTS)
-  set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "$<IF:$<CONFIG:Debug>,VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Debug,VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Release>")
-endfunction(vpp_enable_vamp_plugin_tester) 
+  set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "VAMP_PATH=$<TARGET_FILE_DIR:${target}>")
+endfunction(vpp_enable_vamp_plugin_tester)
 
 # Creates clang-format targets to check and apply the format
 # to the sources

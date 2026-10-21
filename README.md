@@ -45,7 +45,7 @@ vpp_set_plugin_install(my-vamp-plugin)
 # Create two targets to check and apply clang-format the formatting of sources with clang-format. 
 vpp_create_clang_format_targets(my-vamp-plugin ${MY_PLUGIN_SOURCES})
 # Add ctest using the vamp-plugin-tester executable 
-vpp_enable_vamp_plugin_tester()
+vpp_enable_vamp_plugin_tester(my-vamp-plugin)
 ```
 
 > ⚠️ Packaging under Windows requires InnoSetup. 
