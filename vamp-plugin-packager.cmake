@@ -114,6 +114,62 @@ function(vpp_prepare_vamp_bundle target outputname catfile copyright)
   endif()
 endfunction(vpp_prepare_vamp_bundle)
 
+# Adds a plugin to the package and generates the Vamp bundle.
+# OUTPUT_NAME is the required output name of the dynamic library of the plugin.
+# CATFILE is the required category file of the plugin.
+# COPYRIGHT is an optional copyright used to generate the Info.plist file of a macOS bundle.
+# VERSION is an optional version of the plugin that defines the PLUGIN_VERSION macro
+# for the compilation of the sources of the target.
+# INSTALL enables (ON or OFF) the install rules for the plugin.
+# DEBUG enables (ON or OFF) the debugging of the plugin with the Partiels application
+# and requires DEBUG_DOCUMENT that is the document used by the Partiels application.
+# TESTER enables (ON or OFF) the ctest with the vamp plugin tester.
+# TESTER_ARGUMENTS are the arguments of the command line of the vamp plugin tester.
+# TESTER_TIMEOUT is the timeout in seconds of the test with the vamp plugin tester
+# (no timeout when it is omitted or when the value is zero).
+function(vpp_add_plugin target)
+  cmake_parse_arguments(VPP_PLUGIN
+    ""
+    "OUTPUT_NAME;CATFILE;COPYRIGHT;VERSION;DEBUG_DOCUMENT;TESTER_TIMEOUT;INSTALL;DEBUG;TESTER"
+    "TESTER_ARGUMENTS"
+    ${ARGN})
+
+  if(VPP_PLUGIN_UNPARSED_ARGUMENTS)
+    message(WARNING "vpp_add_plugin: unknown arguments ${VPP_PLUGIN_UNPARSED_ARGUMENTS}")
+  endif()
+  if(NOT VPP_PLUGIN_OUTPUT_NAME)
+    message(FATAL_ERROR "vpp_add_plugin: the keyword OUTPUT_NAME is required")
+  endif()
+  if(NOT VPP_PLUGIN_CATFILE)
+    message(FATAL_ERROR "vpp_add_plugin: the keyword CATFILE is required")
+  endif()
+  if(VPP_PLUGIN_DEBUG AND NOT VPP_PLUGIN_DEBUG_DOCUMENT)
+    message(FATAL_ERROR "vpp_add_plugin: the keyword DEBUG_DOCUMENT is required when DEBUG is enabled")
+  endif()
+
+  vpp_add_plugin_imp(${target} "${VPP_PLUGIN_OUTPUT_NAME}" "${VPP_PLUGIN_CATFILE}" "${VPP_PLUGIN_COPYRIGHT}")
+
+  if(VPP_PLUGIN_VERSION)
+    target_compile_definitions(${target} PRIVATE PLUGIN_VERSION=${VPP_PLUGIN_VERSION})
+  endif()
+
+  if(VPP_PLUGIN_INSTALL)
+    vpp_set_plugin_install(${target})
+  endif()
+
+  if(VPP_PLUGIN_DEBUG)
+    vpp_set_plugin_debug(${target} "${VPP_PLUGIN_DEBUG_DOCUMENT}")
+  endif()
+
+  if(VPP_PLUGIN_TESTER)
+    if(VPP_PLUGIN_TESTER_TIMEOUT)
+      vpp_enable_vamp_plugin_tester(${target} ${VPP_PLUGIN_TESTER_ARGUMENTS} TIMEOUT ${VPP_PLUGIN_TESTER_TIMEOUT})
+    else()
+      vpp_enable_vamp_plugin_tester(${target} ${VPP_PLUGIN_TESTER_ARGUMENTS})
+    endif()
+  endif()
+endfunction(vpp_add_plugin)
+
 # Generations
 if(WIN32) # WINDOWS
 
@@ -161,7 +217,7 @@ if(WIN32) # WINDOWS
     add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
   endfunction()
   
-  function(vpp_add_plugin target outputname catfile copyright)
+  function(vpp_add_plugin_imp target outputname catfile copyright)
     set(PLUGIN_NAME "${outputname}")
 
     vpp_prepare_vamp_bundle(${target} "${outputname}" "${catfile}" "${copyright}")
@@ -183,7 +239,7 @@ if(WIN32) # WINDOWS
 
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
-  endfunction(vpp_add_plugin)
+  endfunction(vpp_add_plugin_imp)
 
   find_program(ISCC_EXE "iscc" HINTS "C:/Program Files (x86)/Inno Setup 6" REQUIRED)
   cmake_path(NATIVE_PATH ISCC_EXE ISCC_EXE_NAT)
@@ -276,7 +332,7 @@ elseif(APPLE) # APPLE
   endfunction()
   
 
-  function(vpp_add_plugin target outputname catfile copyright)
+  function(vpp_add_plugin_imp target outputname catfile copyright)
     set(PLUGIN_NAME "${outputname}")
 
     vpp_prepare_vamp_bundle(${target} "${outputname}" "${catfile}" "${copyright}")
@@ -343,7 +399,7 @@ elseif(APPLE) # APPLE
 
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
-  endfunction(vpp_add_plugin)
+  endfunction(vpp_add_plugin_imp)
 
   file(APPEND ${VPP_PACKAGE_SCRIPT} "cat ${VPP_TEMP1} ${VPP_TEMP2} ${VPP_TEMP3} > \"${VPP_DISRIB_XML}\"\n")
   file(APPEND ${VPP_PACKAGE_SCRIPT} "echo \"</installer-gui-script>\\n\" >> \"${VPP_DISRIB_XML}\"\n")
@@ -395,7 +451,7 @@ elseif(UNIX) # LINUX
     add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
   endfunction()
 
-  function(vpp_add_plugin target outputname catfile copyright)
+  function(vpp_add_plugin_imp target outputname catfile copyright)
     set(PLUGIN_NAME "${outputname}")
 
     vpp_prepare_vamp_bundle(${target} "${outputname}" "${catfile}" "${copyright}")
@@ -416,7 +472,7 @@ elseif(UNIX) # LINUX
 
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
-  endfunction(vpp_add_plugin)
+  endfunction(vpp_add_plugin_imp)
 
   # The package is a zip archive that contains the files of the temporary directory directly,
   # hence the files are extracted at the root of the destination directory.
@@ -504,6 +560,8 @@ endfunction(vpp_set_plugin_debug)
 # the hosts browse this directory to discover and load the plugin. Note that the
 # binary of a macOS bundle has no extension, therefore a symlink to the library
 # must be generated next to it so that the hosts can discover the plugin.
+# The tests are run with ctest, hence enable_testing() must have been called
+# in the top-level CMakeLists file of the project that includes the packager.
 function(vpp_enable_vamp_plugin_tester target)
   if(APPLE)
     if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester)

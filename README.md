@@ -34,20 +34,31 @@ set(VPP_CODESIGN_APPLE_KEYCHAIN_PROFILE_INSTALLER "notary-installer" CACHE STRIN
 # Include the Vamp Plugin Packager sources.
 include(vamp-plugin-packager/vamp-plugin-packager.cmake)
 ...
-# Add a plugin to the package and generate the Vamp bundle with the output name of the
-# library, the category file and an optional copyright used in the Info.plist of a macOS bundle.
-vpp_add_plugin(my-vamp-plugin my-plugin-name my-plugin.cat "Copyright MyCompany. All rights reserved")
+# Add a plugin to the package and generate the Vamp bundle with the required output name
+# of the library and the category file, and an optional copyright used to generate the
+# Info.plist file of a macOS bundle, and an optional version that defines the PLUGIN_VERSION
+# macro for the compilation of the sources of the target. The plugin can be installed
+# (INSTALL ON), debugged with the Partiels application (DEBUG ON with DEBUG_DOCUMENT) and
+# tested with the vamp
+# plugin tester (TESTER ON with the arguments of its command line and a timeout in seconds).
+# Note that the tests are run with ctest, hence enable_testing() must have been called
+# in the top-level CMakeLists file of the project that includes the packager.
+vpp_add_plugin(my-vamp-plugin
+  OUTPUT_NAME my-plugin-name
+  CATFILE my-plugin.cat
+  COPYRIGHT "Copyright MyCompany. All rights reserved"
+  VERSION 1
+  INSTALL ON
+  DEBUG ON
+  DEBUG_DOCUMENT my-partielsdoc.ptldoc
+  TESTER ON
+  TESTER_ARGUMENTS -a -t C1
+  TESTER_TIMEOUT 600
+)
 # Add a file to the package.
 vpp_add_file(my-extra-file.txt my-destination-dir)
-# Configure target debugging with the Partials application and a document (Xcode only). Specify PARTIELS_EXE_HINT_PATH if you want to use a specific path for Partiels.
-vpp_set_plugin_debug(my-vamp-plugin "my-partielsdoc.ptldoc")
-# Configure the install command for the plugin.
-vpp_set_plugin_install(my-vamp-plugin)
 # Create two targets to check and apply clang-format the formatting of sources with clang-format. 
 vpp_create_clang_format_targets(my-vamp-plugin ${MY_PLUGIN_SOURCES})
-# Add ctest using the vamp-plugin-tester executable, with the arguments of its command line
-# and an optional TIMEOUT keyword followed by the timeout of the test in seconds (no timeout when omitted or zero).
-vpp_enable_vamp_plugin_tester(my-vamp-plugin -a -t C1 TIMEOUT 600)
 ```
 
 > ⚠️ Packaging under Windows requires InnoSetup. 
