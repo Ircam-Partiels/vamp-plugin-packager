@@ -47,6 +47,73 @@ elseif(APPLE AND VPP_NOTARIZE)
   endif()
 endif()
 
+# Prepares the target as a Vamp bundle with the given output name and category file.
+# The optional copyright is used to generate the Info.plist file of a macOS bundle.
+# On Windows and Linux, the dynamic library is generated directly in the Contents
+# directory of the bundle so that it is not created next to it (the output directory
+# is created before linking). On macOS, the binary of a bundle has no extension, hence
+# a symlink to the library is generated next to it so that the hosts and the vamp plugin
+# tester that browse the Vamp path can discover the plugin.
+function(vpp_prepare_vamp_bundle target outputname catfile copyright)
+  set_target_properties(${target} PROPERTIES
+    BUNDLE TRUE
+    OUTPUT_NAME "${outputname}"
+    PREFIX ""
+    BUNDLE_EXTENSION "vamp"
+  )
+
+  if(APPLE)
+    set_source_files_properties("${catfile}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(${target} PRIVATE "${catfile}")
+
+    # The Info.plist file of the bundle is generated from the output name and the copyright.
+    set(VPP_INFO_PLIST_FILE "${CMAKE_CURRENT_BINARY_DIR}/${outputname}-Info.plist")
+    file(WRITE ${VPP_INFO_PLIST_FILE} "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "<plist version=\"1.0\">\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "  <dict>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <key>CFBundleExecutable</key>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <string>${outputname}</string>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <key>CFBundlePackageType</key>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <string>iLaX</string>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <key>CFBundleIconFile</key>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <string></string>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <key>CFBundleVersion</key>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <string></string>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <key>CFBundleShortVersionString</key>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "    <string></string>\n")
+    if(copyright)
+      file(APPEND ${VPP_INFO_PLIST_FILE} "    <key>NSHumanReadableCopyright</key>\n")
+      file(APPEND ${VPP_INFO_PLIST_FILE} "    <string>${copyright}</string>\n")
+    endif()
+    file(APPEND ${VPP_INFO_PLIST_FILE} "  </dict>\n")
+    file(APPEND ${VPP_INFO_PLIST_FILE} "</plist>\n")
+    set_target_properties(${target} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${VPP_INFO_PLIST_FILE}")
+
+    add_custom_command(TARGET ${target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E echo "BNDL????" > "$<TARGET_BUNDLE_CONTENT_DIR:${target}>/PkgInfo"
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ${outputname} "$<TARGET_FILE_DIR:${target}>/${outputname}.dylib"
+    )
+  else()
+    if(WIN32)
+      set(VPP_BUNDLE_ARCH_DIR "x86_64-win")
+    else()
+      set(VPP_BUNDLE_ARCH_DIR "x86_64-linux")
+    endif()
+
+    set_target_properties(${target} PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
+    )
+
+    add_custom_command(TARGET ${target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${target}>/../Resources"
+      COMMAND ${CMAKE_COMMAND} -E copy "${catfile}" "$<TARGET_FILE_DIR:${target}>/../Resources"
+    )
+  endif()
+endfunction(vpp_prepare_vamp_bundle)
+
 # Generations
 if(WIN32) # WINDOWS
 
@@ -94,39 +161,25 @@ if(WIN32) # WINDOWS
     add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
   endfunction()
   
-  function(vpp_add_plugin target catfile)
-    get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
-    if(NOT PLUGIN_NAME)
-      set(PLUGIN_NAME "${target}")
-    endif()
+  function(vpp_add_plugin target outputname catfile copyright)
+    set(PLUGIN_NAME "${outputname}")
 
-    get_target_property(PLUGIN_BUNDLE ${target} BUNDLE)
-    if(PLUGIN_BUNDLE)
-      file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
-      
-      file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.vamp\\*\"; DestDir: \"{app}\\${PLUGIN_NAME}.vamp\"; Flags: ignoreversion recursesubdirs\n")
-      
-      # Remove the files that may have been installed by the previous versions of the plugin
-      file(APPEND ${VPP_ISS_FILE} "\n[InstallDelete]\n")
-      file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.dll\"\n")
-      file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.cat\"\n")
+    vpp_prepare_vamp_bundle(${target} "${outputname}" "${catfile}" "${copyright}")
 
-      # The dynamic library is generated in the Contents directory of the bundle,
-      # hence the bundle directory is two levels above the directory of the library.
-      add_custom_target(${target}_package
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/../.." ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
-      )
-    else()
-      add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat)
+    file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
 
-      file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.dll\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
-      file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.cat\"; DestDir: \"{app}\"; Flags: ignoreversion\n")
+    file(APPEND ${VPP_ISS_FILE} " Source: \"${VPP_TEMP_DIR_NAT}\\${PLUGIN_NAME}.vamp\\*\"; DestDir: \"{app}\\${PLUGIN_NAME}.vamp\"; Flags: ignoreversion recursesubdirs\n")
 
-      add_custom_target(${target}_package 
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${VPP_TEMP_DIR}/${PLUGIN_NAME}.dll
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat ${VPP_TEMP_DIR}/${PLUGIN_NAME}.cat
-      )
-    endif()
+    # Remove the files that may have been installed by the previous versions of the plugin
+    file(APPEND ${VPP_ISS_FILE} "\n[InstallDelete]\n")
+    file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.dll\"\n")
+    file(APPEND ${VPP_ISS_FILE} "Type: files; Name: \"{app}\\${PLUGIN_NAME}.cat\"\n")
+
+    # The dynamic library is generated in the Contents directory of the bundle,
+    # hence the bundle directory is two levels above the directory of the library.
+    add_custom_target(${target}_package
+      COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/../.." ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
+    )
 
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
@@ -223,16 +276,12 @@ elseif(APPLE) # APPLE
   endfunction()
   
 
-  function(vpp_add_plugin target catfile)
-    get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
-    if(NOT PLUGIN_NAME)
-      set(PLUGIN_NAME "${target}")
-    endif()
+  function(vpp_add_plugin target outputname catfile copyright)
+    set(PLUGIN_NAME "${outputname}")
+
+    vpp_prepare_vamp_bundle(${target} "${outputname}" "${catfile}" "${copyright}")
 
     get_target_property(PLUGIN_TYPE ${target} TYPE)
-    if(NOT PLUGIN_TYPE STREQUAL "MODULE_LIBRARY")
-      add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
-    endif()
     message(STATUS "Adding plugin ${PLUGIN_NAME} to the package with type ${PLUGIN_TYPE}")
 
     # For a bundle, a postinstall script removes the files that may have been installed
@@ -346,41 +395,25 @@ elseif(UNIX) # LINUX
     add_dependencies(${VPP_NAME}_package ${file_name_we}_package)
   endfunction()
 
-  function(vpp_add_plugin target catfile)
-    get_target_property(PLUGIN_NAME ${target} LIBRARY_OUTPUT_NAME)
-    if(NOT PLUGIN_NAME)
-      set(PLUGIN_NAME "${target}")
-    endif()
+  function(vpp_add_plugin target outputname catfile copyright)
+    set(PLUGIN_NAME "${outputname}")
 
-    get_target_property(PLUGIN_BUNDLE ${target} BUNDLE)
-    if(PLUGIN_BUNDLE)
-      file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
+    vpp_prepare_vamp_bundle(${target} "${outputname}" "${catfile}" "${copyright}")
 
-      # Remove the files that may have been installed by the previous versions of the plugin
-      file(APPEND ${VPP_INSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
-      file(APPEND ${VPP_INSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.cat\n")
-      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -rf $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
-      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -rf $HOME/vamp/${PLUGIN_NAME}.vamp\n")
-      
-      # The dynamic library is generated in the Contents directory of the bundle,
-      # hence the bundle directory is two levels above the directory of the library.
-      add_custom_target(${target}_package
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/../.." ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
-      )
-    else()
-      add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${catfile} "$<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat")
+    file(MAKE_DIRECTORY ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp)
 
-      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.so $HOME/vamp\n")
-      file(APPEND ${VPP_INSTALL_SCRIPT} "cp -f $ThisPath/${PLUGIN_NAME}.cat $HOME/vamp\n")
-      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
-      file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.cat\n")
-      
-      add_custom_target(${target}_package 
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${VPP_TEMP_DIR}/${PLUGIN_NAME}.so
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE_DIR:${target}>/${PLUGIN_NAME}.cat ${VPP_TEMP_DIR}/${PLUGIN_NAME}.cat
-      )
-    endif()
-    
+    # Remove the files that may have been installed by the previous versions of the plugin
+    file(APPEND ${VPP_INSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.so\n")
+    file(APPEND ${VPP_INSTALL_SCRIPT} "rm -f $HOME/vamp/${PLUGIN_NAME}.cat\n")
+    file(APPEND ${VPP_INSTALL_SCRIPT} "cp -rf $ThisPath/${PLUGIN_NAME}.vamp $HOME/vamp\n")
+    file(APPEND ${VPP_UNINSTALL_SCRIPT} "rm -rf $HOME/vamp/${PLUGIN_NAME}.vamp\n")
+
+    # The dynamic library is generated in the Contents directory of the bundle,
+    # hence the bundle directory is two levels above the directory of the library.
+    add_custom_target(${target}_package
+      COMMAND ${CMAKE_COMMAND} -E copy_directory "$<TARGET_FILE_DIR:${target}>/../.." ${VPP_TEMP_DIR}/${PLUGIN_NAME}.vamp
+    )
+
     add_dependencies(${target}_package ${target})
     add_dependencies(${VPP_NAME}_package ${target}_package)
   endfunction(vpp_add_plugin)
@@ -395,6 +428,9 @@ endif()
 function(vpp_set_plugin_install target)
   function(vpp_set_install_imp target destination)
     get_target_property(TARGET_OUTPUT_NAME ${target} LIBRARY_OUTPUT_NAME)
+    if(NOT TARGET_OUTPUT_NAME)
+      get_target_property(TARGET_OUTPUT_NAME ${target} OUTPUT_NAME)
+    endif()
     if(NOT TARGET_OUTPUT_NAME)
       set(TARGET_OUTPUT_NAME "${target}")
     endif()

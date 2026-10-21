@@ -34,8 +34,9 @@ set(VPP_CODESIGN_APPLE_KEYCHAIN_PROFILE_INSTALLER "notary-installer" CACHE STRIN
 # Include the Vamp Plugin Packager sources.
 include(vamp-plugin-packager/vamp-plugin-packager.cmake)
 ...
-# Add a plugin to the package.
-vpp_add_plugin(my-vamp-plugin)
+# Add a plugin to the package and generate the Vamp bundle with the output name of the
+# library, the category file and an optional copyright used in the Info.plist of a macOS bundle.
+vpp_add_plugin(my-vamp-plugin my-plugin-name my-plugin.cat "Copyright MyCompany. All rights reserved")
 # Add a file to the package.
 vpp_add_file(my-extra-file.txt my-destination-dir)
 # Configure target debugging with the Partials application and a document (Xcode only). Specify PARTIELS_EXE_HINT_PATH if you want to use a specific path for Partiels.
