@@ -55,6 +55,12 @@ vpp_add_plugin(my-vamp-plugin
   TESTER_ARGUMENTS -a -t C1
   TESTER_TIMEOUT 600
 )
+# The Contents directory of the generated Vamp bundle is the "$<TARGET_FILE_DIR:target>/.."
+# generator expression on all the OS, hence the resources can be copied in the bundle with
+# a single command.
+add_custom_command(TARGET my-vamp-plugin POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${MY_RESOURCES_DIR}" "$<TARGET_FILE_DIR:my-vamp-plugin>/../Resources"
+)
 # Add a file to the package.
 vpp_add_file(my-extra-file.txt my-destination-dir)
 # Create two targets to check and apply clang-format the formatting of sources with clang-format. 

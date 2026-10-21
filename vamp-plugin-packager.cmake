@@ -54,6 +54,10 @@ endif()
 # is created before linking). On macOS, the binary of a bundle has no extension, hence
 # a symlink to the library is generated next to it so that the hosts and the vamp plugin
 # tester that browse the Vamp path can discover the plugin.
+# The bundle is generated in the directory of the build type (Debug or Release) on
+# all the OS, hence the Contents directory of the Vamp bundle is the generator
+# expression "$<TARGET_FILE_DIR:target>/.." and the resources can be copied in the
+# bundle with a single command for all the OS.
 function(vpp_prepare_vamp_bundle target outputname catfile copyright)
   set_target_properties(${target} PROPERTIES
     BUNDLE TRUE
@@ -63,6 +67,12 @@ function(vpp_prepare_vamp_bundle target outputname catfile copyright)
   )
 
   if(APPLE)
+    set_target_properties(${target} PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/Debug"
+      LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release"
+    )
+
     set_source_files_properties("${catfile}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     target_sources(${target} PRIVATE "${catfile}")
 
@@ -103,8 +113,8 @@ function(vpp_prepare_vamp_bundle target outputname catfile copyright)
 
     set_target_properties(${target} PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
-      LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
-      LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/Debug/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release/${outputname}.vamp/Contents/${VPP_BUNDLE_ARCH_DIR}"
     )
 
     add_custom_command(TARGET ${target} POST_BUILD
@@ -127,6 +137,9 @@ endfunction(vpp_prepare_vamp_bundle)
 # TESTER_ARGUMENTS are the arguments of the command line of the vamp plugin tester.
 # TESTER_TIMEOUT is the timeout in seconds of the test with the vamp plugin tester
 # (no timeout when it is omitted or when the value is zero).
+# The Contents directory of the generated Vamp bundle is the generator expression
+# "$<TARGET_FILE_DIR:target>/.." on all the OS, hence the resources can be copied
+# in the bundle with a single command for all the OS.
 function(vpp_add_plugin target)
   cmake_parse_arguments(VPP_PLUGIN
     ""
@@ -548,9 +561,13 @@ function(vpp_set_plugin_debug target file)
 
   if(PARTIELS_EXE)
     message(STATUS "Debugging ${target} with ${PARTIELS_EXE}")
+    get_target_property(TARGET_OUTPUT_NAME ${target} OUTPUT_NAME)
+    if(NOT TARGET_OUTPUT_NAME)
+      set(TARGET_OUTPUT_NAME "${target}")
+    endif()
     set_target_properties(${target} PROPERTIES XCODE_SCHEME_EXECUTABLE ${PARTIELS_EXE})
     set_target_properties(${target} PROPERTIES XCODE_SCHEME_ARGUMENTS ${file})
-    set_target_properties(${target} PROPERTIES XCODE_SCHEME_ENVIRONMENT "VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Debug")
+    set_target_properties(${target} PROPERTIES XCODE_SCHEME_ENVIRONMENT "VAMP_PATH=${CMAKE_CURRENT_BINARY_DIR}/Debug/${TARGET_OUTPUT_NAME}.vamp/Contents/MacOS")
   endif()
 endfunction(vpp_set_plugin_debug)
 
