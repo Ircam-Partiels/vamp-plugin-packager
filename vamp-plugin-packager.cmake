@@ -486,14 +486,34 @@ function(vpp_enable_vamp_plugin_tester target)
     endif()
   endif()
 
-  set(ARG_CLI_OPTIONS ${ARGN})
+  # The arguments of the command line of the vamp plugin tester, except the
+  # TIMEOUT keyword and its value that defines the timeout in seconds of the
+  # test (no timeout when it is not provided or when the value is zero).
+  set(ARG_CLI_OPTIONS)
+  set(ARG_TIMEOUT)
+  set(VPP_PARSE_TIMEOUT OFF)
+  foreach(VPP_ARG IN LISTS ARGN)
+    if(VPP_PARSE_TIMEOUT)
+      set(ARG_TIMEOUT "${VPP_ARG}")
+      set(VPP_PARSE_TIMEOUT OFF)
+    elseif(VPP_ARG STREQUAL "TIMEOUT")
+      set(VPP_PARSE_TIMEOUT ON)
+    else()
+      list(APPEND ARG_CLI_OPTIONS "${VPP_ARG}")
+    endif()
+  endforeach()
+
   if(NOT ARG_CLI_OPTIONS)
     set(ARG_CLI_OPTIONS --all)
   endif()
 
   message(STATUS "Test with: ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester ${ARG_CLI_OPTIONS}")
   add_test(NAME VampPluginTester COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vamp-plugin-tester/vamp-plugin-tester ${ARG_CLI_OPTIONS} COMMAND_EXPAND_LISTS)
-  set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "VAMP_PATH=$<TARGET_FILE_DIR:${target}>")
+  if(ARG_TIMEOUT)
+    set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "VAMP_PATH=$<TARGET_FILE_DIR:${target}>" TIMEOUT ${ARG_TIMEOUT})
+  else()
+    set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "VAMP_PATH=$<TARGET_FILE_DIR:${target}>")
+  endif()
 endfunction(vpp_enable_vamp_plugin_tester)
 
 # Creates clang-format targets to check and apply the format

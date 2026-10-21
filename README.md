@@ -44,8 +44,9 @@ vpp_set_plugin_debug(my-vamp-plugin "my-partielsdoc.ptldoc")
 vpp_set_plugin_install(my-vamp-plugin)
 # Create two targets to check and apply clang-format the formatting of sources with clang-format. 
 vpp_create_clang_format_targets(my-vamp-plugin ${MY_PLUGIN_SOURCES})
-# Add ctest using the vamp-plugin-tester executable 
-vpp_enable_vamp_plugin_tester(my-vamp-plugin)
+# Add ctest using the vamp-plugin-tester executable, with the arguments of its command line
+# and an optional TIMEOUT keyword followed by the timeout of the test in seconds (no timeout when omitted or zero).
+vpp_enable_vamp_plugin_tester(my-vamp-plugin -a -t C1 TIMEOUT 600)
 ```
 
 > ⚠️ Packaging under Windows requires InnoSetup. 
