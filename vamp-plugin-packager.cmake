@@ -625,6 +625,14 @@ function(vpp_enable_vamp_plugin_tester target)
   else()
     set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT "VAMP_PATH=$<TARGET_FILE_DIR:${target}>")
   endif()
+  if(WIN32)
+    # On Windows the loader does not search the directory of the dynamic library
+    # for its dependencies, hence the libraries that are copied next to the
+    # plugin in the Contents directory of the Vamp bundle are not found by the
+    # vamp plugin tester. The directory of the plugin is prepended to the PATH
+    # of the test so that its dependencies are resolved.
+    set_tests_properties(VampPluginTester PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:${target}>")
+  endif()
 endfunction(vpp_enable_vamp_plugin_tester)
 
 # Creates clang-format targets to check and apply the format
