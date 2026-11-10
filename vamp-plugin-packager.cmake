@@ -369,6 +369,11 @@ elseif(APPLE) # APPLE
 
     string(TOLOWER "com.${VPP_COMPANY}.${PLUGIN_NAME}.vamp.pkg" VPP_PACKAGE_UID)
 
+    # For a bundle, only the bundle is copied in a dedicated root directory of the package
+    # because the directory of the bundle can contain other targets (e.g. the test executables
+    # generated in the directory of the build type by Xcode) that must not be installed.
+    set(VPP_PLUGIN_ROOT_DIR "${VPP_TEMP_DIR}/${target}-root")
+
     file(APPEND ${VPP_TEMP1} "    <pkg-ref id=\"${VPP_PACKAGE_UID}\"/>\n")
     file(APPEND ${VPP_TEMP2} "        <line choice=\"${VPP_PACKAGE_UID}\"/>\n")
     file(APPEND ${VPP_TEMP3} "    <choice id=\"${VPP_PACKAGE_UID}\" visible=\"true\" start_selected=\"true\" title=\"${PLUGIN_NAME}\"><pkg-ref id=\"${VPP_PACKAGE_UID}\"/></choice><pkg-ref id=\"${VPP_PACKAGE_UID}\" version=\"${VPP_BUILD_TAG}\" onConclusion=\"none\">${target}.pkg</pkg-ref>\n")
@@ -382,11 +387,14 @@ elseif(APPLE) # APPLE
         add_custom_target(${target}_package COMMAND ${PLUGIN_PKG_SCRIPT} $<TARGET_BUNDLE_DIR:${target}>)
         
         file(APPEND ${PLUGIN_PKG_SCRIPT} "codesign --sign \"${VPP_CODESIGN_APPLE_DEV_ID_APPLICATION_CERT}\" --entitlements \"${VPP_CODESIGN_APPLE_ENTITLEMENTS}\" --deep -f -o runtime --timestamp \"$1\"\n")
+        file(APPEND ${PLUGIN_PKG_SCRIPT} "rm -rf \"${VPP_PLUGIN_ROOT_DIR}\"\n")
+        file(APPEND ${PLUGIN_PKG_SCRIPT} "mkdir -p \"${VPP_PLUGIN_ROOT_DIR}\"\n")
+        file(APPEND ${PLUGIN_PKG_SCRIPT} "ditto \"$1\" \"${VPP_PLUGIN_ROOT_DIR}/${PLUGIN_NAME}.vamp\"\n")
 
         if(CMAKE_OSX_DEPLOYMENT_TARGET)
-          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1/../\" --scripts \"${VPP_PLUGIN_SCRIPTS_DIR}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" --min-os-version \"${CMAKE_OSX_DEPLOYMENT_TARGET}\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
+          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"${VPP_PLUGIN_ROOT_DIR}\" --scripts \"${VPP_PLUGIN_SCRIPTS_DIR}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" --min-os-version \"${CMAKE_OSX_DEPLOYMENT_TARGET}\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
         else()
-          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"$1/../\" --scripts \"${VPP_PLUGIN_SCRIPTS_DIR}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
+          file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgbuild --sign \"${VPP_CODESIGN_APPLE_DEV_ID_INSTALLER_CERT}\" --timestamp --root \"${VPP_PLUGIN_ROOT_DIR}\" --scripts \"${VPP_PLUGIN_SCRIPTS_DIR}\" --identifier \"${VPP_PACKAGE_UID}\" --version \"${VPP_BUILD_TAG}\" --install-location \"/Library/Audio/Plug-Ins/Vamp/\" \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
         endif()
       else()
         add_custom_target(${target}_package COMMAND ${PLUGIN_PKG_SCRIPT} $<TARGET_FILE_DIR:${target}>)
@@ -404,9 +412,22 @@ elseif(APPLE) # APPLE
       file(APPEND ${PLUGIN_PKG_SCRIPT} "pkgutil --check-signature \"${VPP_TEMP_DIR}/${target}.pkg\"\n")
     else()
       if(CMAKE_OSX_DEPLOYMENT_TARGET)
-        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> ${VPP_PKG_SCRIPTS_ARGS} --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" --min-os-version "${CMAKE_OSX_DEPLOYMENT_TARGET}" "${VPP_TEMP_DIR}/${target}.pkg")
+        set(VPP_PKG_MIN_OS_ARGS --min-os-version "${CMAKE_OSX_DEPLOYMENT_TARGET}")
       else()
-        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> ${VPP_PKG_SCRIPTS_ARGS} --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" "${VPP_TEMP_DIR}/${target}.pkg")
+        set(VPP_PKG_MIN_OS_ARGS)
+      endif()
+      if(PLUGIN_TYPE STREQUAL "MODULE_LIBRARY")
+        # The root of the package is a directory that only contains the bundle (the directory
+        # of the binary is the Contents/MacOS directory of the bundle)
+        add_custom_target(${target}_package
+          COMMAND ${CMAKE_COMMAND} -E rm -rf "${VPP_PLUGIN_ROOT_DIR}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${VPP_PLUGIN_ROOT_DIR}"
+          COMMAND ditto "$<TARGET_BUNDLE_DIR:${target}>" "${VPP_PLUGIN_ROOT_DIR}/${PLUGIN_NAME}.vamp"
+          COMMAND pkgbuild --root "${VPP_PLUGIN_ROOT_DIR}" ${VPP_PKG_SCRIPTS_ARGS} --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" ${VPP_PKG_MIN_OS_ARGS} "${VPP_TEMP_DIR}/${target}.pkg"
+          VERBATIM
+        )
+      else()
+        add_custom_target(${target}_package COMMAND pkgbuild --root $<TARGET_FILE_DIR:${target}> --identifier "${VPP_PACKAGE_UID}" --version "${VPP_BUILD_TAG}" --install-location "/Library/Audio/Plug-Ins/Vamp/" ${VPP_PKG_MIN_OS_ARGS} "${VPP_TEMP_DIR}/${target}.pkg")
       endif()
     endif()
 
