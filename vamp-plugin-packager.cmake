@@ -636,12 +636,14 @@ function(vpp_enable_vamp_plugin_tester target)
 endfunction(vpp_enable_vamp_plugin_tester)
 
 # Creates clang-format targets to check and apply the format
-# to the sources
+# to the sources (all the arguments following the prefix name,
+# a list or several lists of sources)
 function(vpp_create_clang_format_targets prefixname sources)
+  set(VPP_FORMAT_SOURCES ${sources} ${ARGN})
   find_program(CLANG_FORMAT_EXE "clang-format" HINTS "C:/Program Files/LLVM/bin")
   if(CLANG_FORMAT_EXE)
-    add_custom_target(${prefixname}_check_format ${CLANG_FORMAT_EXE} --Werror --dry-run --verbose -style=file ${sources})
-    add_custom_target(${prefixname}_apply_format ${CLANG_FORMAT_EXE} -i -style=file ${sources})
+    add_custom_target(${prefixname}_check_format ${CLANG_FORMAT_EXE} --Werror --dry-run --verbose -style=file ${VPP_FORMAT_SOURCES})
+    add_custom_target(${prefixname}_apply_format ${CLANG_FORMAT_EXE} -i -style=file ${VPP_FORMAT_SOURCES})
   else()
     message(STATUS "Clang Format targets cannot be generated because clang-format is not found")
   endif()
